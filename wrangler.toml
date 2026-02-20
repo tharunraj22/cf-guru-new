@@ -1,0 +1,15 @@
+name = "cf-guru-new"  # Using a slightly different name to avoid cache issues
+main = "src/index.ts"
+compatibility_date = "2026-02-18"
+compatibility_flags = [ "nodejs_compat" ]
+
+[ai]
+binding = "AI"
+
+[[durable_objects.bindings]]
+name = "ChatBot"
+class_name = "ChatBotV2"
+
+[[migrations]]
+tag = "v1-init-sqlite"
+new_sqlite_classes = ["ChatBotV2"]
