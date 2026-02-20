@@ -40,23 +40,4 @@ cd cf-guru
 # Install dependencies
 npm install```
 
-### 3. Configuration
-To ensure the security and connectivity of the agent, you must set up your API permissions:
-**API Token Permissions:** Create a token in the Cloudflare Dashboard with these scopes:
-
-```Account -> Account Settings -> Read
-Account -> Worker Scripts -> Read
-User -> Cloudflare Radar -> Read```
-
-**Secrets Management:** Securely add your token to the Worker using Wrangler:
-```npx wrangler secret put CLOUDFLARE_API_TOKEN```
-
-### 4. Deployment
-Deploy your code and handle SQLite migrations with a single command:
-```npx wrangler deploy```
-
-🧩 Architecture
-The agent acts as a Durable Object that orchestrates multiple MCP servers. By utilizing the SQLite storage backend, the agent maintains a persistent state and a history of interactions.
-
-⚠️ Important Note on Migrations
-This project uses SQLite storage. If you rename the Durable Object class (e.g., from ChatBot to ChatBotV2), you must update the [[migrations]] section in wrangler.toml and include a deleted_classes directive for the old class to avoid deployment errors such as Code 10064.
+3. Configuration
