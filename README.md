@@ -38,6 +38,6 @@ git clone <your-repo-url>
 cd cf-guru
 
 # Install dependencies
-npm install ```
+npm install
 
 3. Configuration
