@@ -34,7 +34,7 @@ Cloudflare Guru is an advanced AI Agent built on **Cloudflare Workers** using th
 ### 2. Installation
 ```bash
 # Clone the repository
-git clone [https://github.com/tharunraj22/cf-guru-new.git](https://github.com/tharunraj22/cf-guru-new.git)
+git clone https://github.com/tharunraj22/cf-guru-new.git
 cd cf-guru-new
     
 # Install dependencies
