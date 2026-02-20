@@ -40,14 +40,14 @@ cd cf-guru
 # Install dependencies
 npm install
 
-**### 3. Configuration**
+### 3. Configuration
 This section ensures the Security and Connectivity of the agent.
 
 API Token Permissions: It lists the specific scopes (Account, Worker, Radar) needed so the Agent can successfully talk to the MCP servers.
 
 Secrets Management: It instructs the user to use wrangler secret put, which ensures the sensitive CLOUDFLARE_API_TOKEN is encrypted on Cloudflare's servers rather than being leaked in the source code.
 
-**### 4. Deployment**
+### 4. Deployment
 This section covers the Execution.
 
 Wrangler Commands: It provides the final command (npx wrangler deploy) that bundles your TypeScript code, handles the SQLite migrations, and pushes the Agent live to the Cloudflare edge.
