@@ -1,4 +1,4 @@
-name = "cf-guru-new"  # Using a slightly different name to avoid cache issues
+name = "cf-guru-new"
 main = "src/index.ts"
 compatibility_date = "2026-02-18"
 compatibility_flags = [ "nodejs_compat" ]
@@ -7,8 +7,8 @@ compatibility_flags = [ "nodejs_compat" ]
 binding = "AI"
 
 [[durable_objects.bindings]]
-name = "ChatBot"
-class_name = "ChatBotV2"
+name = "ChatBot"              
+class_name = "ChatBotV2"       
 
 [[migrations]]
 tag = "v1-init-sqlite"
