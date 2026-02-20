@@ -21,6 +21,7 @@ export class ChatBotV2 extends Agent {
 
     let allTools: any[] = [];
     let statusLog: string[] = [];
+    let mcpClients: Record<string, any> = {};
 
     // Connect to MCP servers and gather tools
     for (const s of SERVERS) {
@@ -29,7 +30,12 @@ export class ChatBotV2 extends Agent {
         const options = s.auth ? { headers: { "Authorization": `Bearer ${apiToken}` } } : {};
         
         const mcp = await this.addMcpServer(s.id, s.url, options);
-        allTools.push(...mcp.tools);
+        mcpClients[s.id] = mcp;
+        
+        // Add serverId to each tool so we know where to route the request
+        for (const tool of mcp.tools) {
+          allTools.push({ ...tool, serverId: s.id });
+        }
         statusLog.push(`✅ ${s.id}`);
       } catch (err) {
         statusLog.push(`❌ ${s.id}`);
@@ -47,15 +53,15 @@ export class ChatBotV2 extends Agent {
       - If the user asks about their account resources, use the 'worker-bindings' tool.
     `;
 
-    // THE FIX: Translate MCP standard to Cloudflare AI standard
+    // Translate MCP standard to Cloudflare AI standard
     const aiTools = allTools.map(tool => ({
       name: tool.name,
       description: tool.description,
-      parameters: tool.inputSchema // Map MCP inputSchema to Llama 3.1 parameters
+      parameters: tool.inputSchema 
     }));
 
     try {
-      // Call Llama 3.1
+      // 1. Initial Call to Llama 3.1
       const response = await this.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
         messages: [
           { role: "system", content: systemPrompt },
@@ -64,12 +70,35 @@ export class ChatBotV2 extends Agent {
         tools: aiTools
       });
 
-      // Intercept the Tool Call
+      // 2. Did the AI ask for a tool?
       if (response.tool_calls && response.tool_calls.length > 0) {
-        return new Response(`🛠️ Using Tool: ${response.tool_calls[0].name}...`);
+        const tc = response.tool_calls[0];
+        const toolInfo = allTools.find(t => t.name === tc.name);
+        
+        if (toolInfo) {
+          // A. Execute the tool using the specific MCP server
+          const mcp = mcpClients[toolInfo.serverId];
+          const toolResult = await mcp.client.callTool({
+            name: tc.name,
+            arguments: tc.arguments
+          });
+
+          // B. Feed the raw data BACK to Llama 3.1 so it can read it
+          const finalAnswer = await this.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message },
+              { role: "assistant", content: "", tool_calls: response.tool_calls },
+              { role: "tool", name: tc.name, content: JSON.stringify(toolResult) }
+            ]
+          });
+
+          // C. Return the AI's human-readable summary
+          return new Response(finalAnswer.response);
+        }
       }
 
-      // Fallback text response
+      // 3. Fallback: If no tools were needed, just return the chat response
       return new Response(response.response || "No response received.");
     } catch (e: any) {
       return new Response(`AI Error: ${e.message}`);
@@ -133,7 +162,7 @@ const html = `
     const i = document.getElementById('i');
     const c = document.getElementById('chat');
 
-    // 1. Initial Welcome Message (Left-Aligned Agent Bubble)
+    // 1. Initial Welcome Message
     window.onload = () => {
       c.innerHTML = \`
         <div class="flex flex-col gap-1.5 items-start max-w-[85%]">
@@ -159,11 +188,10 @@ const html = `
       const t = i.value.trim();
       if (!t) return;
       
-      // Clear input and lock it briefly
       i.value = '';
       i.disabled = true;
 
-      // 2. User Message (Right-Aligned Indigo Bubble)
+      // 2. User Message
       c.innerHTML += \`
         <div class="flex flex-col gap-1.5 items-end self-end max-w-[85%] ml-auto">
           <div class="flex items-center gap-2 mr-1">
@@ -174,7 +202,7 @@ const html = `
       \`;
       c.scrollTop = c.scrollHeight;
 
-      // 3. Typing Indicator Animation (Bouncing Dots)
+      // 3. Typing Indicator Animation
       const typingId = 'typing-' + Date.now();
       c.innerHTML += \`
         <div id="\${typingId}" class="flex flex-col gap-1.5 items-start max-w-[85%]">
@@ -195,11 +223,10 @@ const html = `
         const r = await fetch('/', { method: 'POST', body: JSON.stringify({ text: t }) });
         const d = await r.text();
         
-        // Remove typing indicator once data arrives
         const typingEl = document.getElementById(typingId);
         if(typingEl) typingEl.remove();
 
-        // 4. Agent Response (Left-Aligned Dark Bubble)
+        // 4. Agent Response
         c.innerHTML += \`
           <div class="flex flex-col gap-1.5 items-start max-w-[85%]">
             <div class="flex items-center gap-2 ml-1">
@@ -215,7 +242,6 @@ const html = `
         document.getElementById(typingId)?.remove();
         c.innerHTML += \`<div class="text-red-500 text-sm text-center my-4 bg-red-500/10 p-2 rounded">Connection error. Please try again.</div>\`;
       } finally {
-        // Unlock input
         i.disabled = false;
         i.focus();
       }
@@ -224,15 +250,14 @@ const html = `
 </body>
 </html>
 `;
+
 // --- The Worker Export (REQUIRED FOR DURABLE OBJECTS) ---
 export default {
   async fetch(request: Request, env: any) {
-    // 1. Serve the HTML UI for standard browser requests
     if (request.method === "GET") {
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     }
     
-    // 2. Route all POST (Chat) requests to the SQLite Durable Object
     const id = env.ChatBot.idFromName("default");
     const stub = env.ChatBot.get(id);
     return stub.fetch(request);
